@@ -35,6 +35,16 @@ async def process_add_command(message: Message, state: FSMContext):
                          reply_markup = kb.choice_what_to_add)
     await state.set_state(FSMFillForm.SA_product_name)
 
+@command_add_router.message(Command(commands='cancel'), StateFilter(default_state))
+async def process_cancel_command(message: Message):
+    await message.answer(
+        text="You not doing anything")
+
+@command_add_router.message(Command(commands='cancel'), ~StateFilter(default_state))
+async def process_cancel_command_state(message: Message, state: FSMContext):
+    await message.answer(
+        text="Cancel")
+
 
 ### Add Recipe ###
 @command_add_router.callback_query(F.data.in_(["add_recipe"]))
