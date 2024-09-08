@@ -16,6 +16,12 @@ choice_what_to_add = InlineKeyboardMarkup(inline_keyboard=[
              [InlineKeyboardButton(text='Recipe',
                                   callback_data="add_recipe")]])
 
+recipe_summary = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text='add ingredient',
+                                  callback_data="add_ingredient_in_recipe"),
+             InlineKeyboardButton(text='Save recipe',
+                                  callback_data="save_new_recipe")]])
+
 save_ingredient = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text='Yes',
                                   callback_data="save_new_ingredient"),

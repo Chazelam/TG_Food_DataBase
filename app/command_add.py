@@ -4,6 +4,7 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.state import default_state, State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
+from aiogram.utils.formatting import Text
 
 import app.keyboards as kb
 import app.database.requests as req
@@ -23,6 +24,7 @@ class FSMFillForm(StatesGroup):
     IN_shop_name    = State()      # Select from list. Load list from shops_list.csv
     IN_stats        = State()      # Price Wheight Calories protein fat carbs
     # Recipe
+    RE_recipe_name = State()
     RE_select_ingredient = State()
     RE_weight = State()
     RE_summary = State()
@@ -33,7 +35,6 @@ class FSMFillForm(StatesGroup):
 async def process_add_command(message: Message, state: FSMContext):
     await message.answer(text = "What you wanna add ?",
                          reply_markup = kb.choice_what_to_add)
-    await state.set_state(FSMFillForm.SA_product_name)
 
 @command_add_router.message(Command(commands='cancel'), StateFilter(default_state))
 async def process_cancel_command(message: Message):
@@ -44,6 +45,7 @@ async def process_cancel_command(message: Message):
 async def process_cancel_command_state(message: Message, state: FSMContext):
     await message.answer(
         text="Cancel")
+    await state.clear()
 
 
 ### Add Recipe ###
@@ -53,48 +55,107 @@ async def add_new_recipe(callback: CallbackQuery, state: FSMContext):
     ingredient_list = await req.get_ingredient_list()
     # ^ return dict: {ingredient_name: [Calories per gram, Price per gramm, proteins per gram, fats per gram, carbs per gram]}
     remaining = ingredient_list.keys()
-    await state.update_data(recipe = [])
-    await state.update_data(ingredient_list = ingredient_list, remaining = remaining, recipe = [])
+    await state.update_data(recipe_name = "",
+                            ingredient_list = ingredient_list, 
+                            remaining = remaining, 
+                            recipe = {},
+                            current_ingredient = "")
 
-    await callback.message.edit_text(text = f"Loaded {len(remaining)} ingredients")
+    await callback.message.edit_text(text = f"Loaded {len(remaining)} ingredients\n\nName of recipe")
+    await state.set_state(FSMFillForm.RE_recipe_name)
+
+
+@command_add_router.message(StateFilter(FSMFillForm.RE_recipe_name))
+async def select_ingredient(message: Message, state: FSMContext):
+    collected_data = await state.get_data()
+    await state.update_data(recipe_name = message.text)
+    await message.answer(text=f"Recipe name - {message.text}\nSelect new ingredient",
+                         reply_markup = await kb.create_reply_keyboard(collected_data["remaining"]))
+    
     await state.set_state(FSMFillForm.RE_select_ingredient)
 
 
 @command_add_router.message(StateFilter(FSMFillForm.RE_select_ingredient))
-async def select_ingredient(message: Message, state: FSMContext):
-    remaining = await state.get_data()
-    await message.answer(text=f"Select new ingredient",
-                         reply_markup = await kb.create_reply_keyboard(remaining["remaining"]))
+async def fill_weight(message: Message, state: FSMContext):
+    # Save selected ingredient
+    ingredient = message.text
+    await state.update_data(current_ingredient = ingredient)
+    # Remove ingredient from remaining
+    collected_data = await state.get_data()
+    remaining = list(collected_data["remaining"])
+    remaining.remove(ingredient)
+    await state.update_data(remaining = remaining)
+    
+    await message.answer(text=f"How much {ingredient} needed ?\nSend weight in gramms.",
+                         reply_markup = ReplyKeyboardRemove())
     
     await state.set_state(FSMFillForm.RE_weight)
 
 
+
 @command_add_router.message(StateFilter(FSMFillForm.RE_weight))
-async def fill_weight(message: Message, state: FSMContext):
-    ingredient = message.text
-    temp = await state.get_data()
-    remaining = list(temp["remaining"]).remove(ingredient)
-    await state.update_data(remaining = remaining)
-    await state.update_data(current_ingredient = ingredient)
-    
-    await message.answer(text=f"How much {ingredient} needed ?\nSend weight in gramms.")
-    
-    await state.set_state(FSMFillForm.RE_summary)
-
-# [[,],[,]]
-
-@command_add_router.message(StateFilter(FSMFillForm.RE_summary))
 async def summary_of_recipe(message: Message, state: FSMContext):
 
-    temp = await state.get_data()
-    recipe = list(temp["recipe"])
-    recipe.append([temp["current_ingredient"], message.text])
-    txt = [f"{(x[1]+"г.").ljust(7)}{x[0].ljust(26)}" for x in recipe]
+    collected_data = await state.get_data()
+    recipe: dict = collected_data["recipe"]
+    recipe[collected_data["current_ingredient"]] = message.text
+
+    ingredient_list = collected_data["ingredient_list"]
+    # ^ return dict: {ingredient_name: [Calories per gram, Price per gramm, proteins per gram, fats per gram, carbs per gram]}
+
+    # summary_text = [f"{(recipe[ingredient]+"г.").ljust(7)}{ingredient.ljust(26)}{round(float(recipe[ingredient])*ingredient_list[ingredient][0], 2)}" for ingredient in recipe.keys()]
+    summary_text = ""
+    stats_sum = {"price": 0, "calories": 0, "proteins": 0, "fats": 0, "carbs": 0}
+    for ingredient in recipe.keys():
+        weight = (recipe[ingredient]+"г.").ljust(7)
+        ingredient_name = ingredient.ljust(26)
+        stats_sum["calories"] += round(float(recipe[ingredient])*ingredient_list[ingredient][0], 2)
+        calories = str(stats_sum["calories"]).ljust(5) + "kcal"
+        stats_sum["pice"] += round(float(recipe[ingredient])*ingredient_list[ingredient][1], 2)
+        stats_sum["proteins"] += round(float(recipe[ingredient])*ingredient_list[ingredient][2], 2)
+        stats_sum["fats"] += round(float(recipe[ingredient])*ingredient_list[ingredient][3], 2)
+        stats_sum["carbs"] += round(float(recipe[ingredient])*ingredient_list[ingredient][4], 2)
+        
+
+        summary_text += (f"{weight}{ingredient_name}{calories}\n")
+
     await message.answer(text=f"Recipe {4} summary:\n"
-                              f""
-                              f"{txt[0]}")
+                              f"{summary_text}\n"
+                              f"Price: {stats_sum["pice"]}р.\n"
+                              f"Calories: {stats_sum["calories"]}\n"
+                              f"Value: {round(stats_sum["calories"]/stats_sum["pice"], 2)}\n\n"
+
+                              f"proteins: {stats_sum["proteins"]}\n"
+                              f"fats: {stats_sum["fats"]}\n"
+                              f"carbs: {stats_sum["carbs"]}\n",
+                        reply_markup=kb.recipe_summary)
     
     await state.set_state(FSMFillForm.RE_select_ingredient)
+
+
+
+@command_add_router.callback_query(F.data.in_(["add_ingredient_in_recipe"]))
+async def select_ingredient2(callback: CallbackQuery, state: FSMContext):
+    collected_data = await state.get_data()
+    # print(collected_data["remaining"])
+    # print(collected_data)
+    await callback.answer()
+    await callback.message.answer(text=f"Select new ingredient",
+                         reply_markup = await kb.create_reply_keyboard(collected_data["remaining"]))
+    
+    await state.set_state(FSMFillForm.RE_select_ingredient)
+
+@command_add_router.callback_query(F.data.in_(["save_new_recipe"]))
+async def process_buttons_press(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    collected_data = await state.get_data()
+    recipe_name = collected_data["recipe_name"]
+    recipe: dict = collected_data["recipe"]
+    await req.save_new_recipe(recipe_name, recipe)
+    await state.clear()
+    await callback.message.edit_text(text = "Recipe saved in databate")
+
+
 # ljust(10)
 # Recipe summary:
 # 100г. Рис                       100ккал

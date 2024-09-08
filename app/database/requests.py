@@ -46,3 +46,17 @@ async def save_sandalone(collected_data: dict):
                                fats =     collected_data['stats'][4],
                                carbs =    collected_data['stats'][5]))
         await session.commit()
+
+
+async def save_new_recipe(recipe_name: str, recipe: dict):
+    async with async_session() as session:
+        for ingredient in recipe:
+            session.add(Recipes(recipe_name = recipe_name,
+                                ingredient = ingredient,
+                                weight = recipe[ingredient]))
+        await session.commit()
+
+
+    #     recipe_name: Mapped[str] = mapped_column(String(25))
+    # ingredient: Mapped[str] = mapped_column(String(25))
+    # weight: Mapped[str] = mapped_column(String(25))
