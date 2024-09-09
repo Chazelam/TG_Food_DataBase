@@ -111,7 +111,7 @@ async def summary_of_recipe(message: Message, state: FSMContext):
         ingredient_name = ingredient.ljust(26)
         stats_sum["calories"] += round(float(recipe[ingredient])*ingredient_list[ingredient][0], 2)
         calories = str(stats_sum["calories"]).ljust(5) + "kcal"
-        stats_sum["pice"] += round(float(recipe[ingredient])*ingredient_list[ingredient][1], 2)
+        stats_sum["price"] += round(float(recipe[ingredient])*ingredient_list[ingredient][1], 2)
         stats_sum["proteins"] += round(float(recipe[ingredient])*ingredient_list[ingredient][2], 2)
         stats_sum["fats"] += round(float(recipe[ingredient])*ingredient_list[ingredient][3], 2)
         stats_sum["carbs"] += round(float(recipe[ingredient])*ingredient_list[ingredient][4], 2)
@@ -121,9 +121,9 @@ async def summary_of_recipe(message: Message, state: FSMContext):
 
     await message.answer(text=f"Recipe {4} summary:\n"
                               f"{summary_text}\n"
-                              f"Price: {stats_sum["pice"]}р.\n"
+                              f"Price: {stats_sum["price"]}р.\n"
                               f"Calories: {stats_sum["calories"]}\n"
-                              f"Value: {round(stats_sum["calories"]/stats_sum["pice"], 2)}\n\n"
+                              f"Value: {round(stats_sum["calories"]/stats_sum["price"], 2)}\n\n"
 
                               f"proteins: {stats_sum["proteins"]}\n"
                               f"fats: {stats_sum["fats"]}\n"

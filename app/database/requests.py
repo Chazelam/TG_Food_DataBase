@@ -20,6 +20,10 @@ async def get_ingredient_list():
             ingredient_list[x.ingredient_name] = entry
         return ingredient_list
 
+async def show_reecipes():
+    async with async_session() as session:
+        return [x for x in await session.scalars(select(Recipes))]
+
 
 async def save_ingredient(collected_data: dict):
     async with async_session() as session:
@@ -55,8 +59,3 @@ async def save_new_recipe(recipe_name: str, recipe: dict):
                                 ingredient = ingredient,
                                 weight = recipe[ingredient]))
         await session.commit()
-
-
-    #     recipe_name: Mapped[str] = mapped_column(String(25))
-    # ingredient: Mapped[str] = mapped_column(String(25))
-    # weight: Mapped[str] = mapped_column(String(25))
