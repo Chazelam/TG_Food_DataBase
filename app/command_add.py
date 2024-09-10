@@ -5,6 +5,7 @@ from aiogram.fsm.state import default_state, State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 from aiogram.utils.formatting import Text
+from tabulate import tabulate
 
 import app.keyboards as kb
 import app.database.requests as req
@@ -104,23 +105,23 @@ async def summary_of_recipe(message: Message, state: FSMContext):
     # ^ return dict: {ingredient_name: [Calories per gram, Price per gramm, proteins per gram, fats per gram, carbs per gram]}
 
     # summary_text = [f"{(recipe[ingredient]+"г.").ljust(7)}{ingredient.ljust(26)}{round(float(recipe[ingredient])*ingredient_list[ingredient][0], 2)}" for ingredient in recipe.keys()]
-    summary_text = ""
+    summary_text = []
     stats_sum = {"price": 0, "calories": 0, "proteins": 0, "fats": 0, "carbs": 0}
     for ingredient in recipe.keys():
-        weight = (recipe[ingredient]+"г.").ljust(7)
-        ingredient_name = ingredient.ljust(26)
+        weight = recipe[ingredient]
+        ingredient_name = ingredient
+        calories = round(float(recipe[ingredient])*ingredient_list[ingredient][0], 2)
+
         stats_sum["calories"] += round(float(recipe[ingredient])*ingredient_list[ingredient][0], 2)
-        calories = str(stats_sum["calories"]).ljust(5) + "kcal"
         stats_sum["price"] += round(float(recipe[ingredient])*ingredient_list[ingredient][1], 2)
         stats_sum["proteins"] += round(float(recipe[ingredient])*ingredient_list[ingredient][2], 2)
         stats_sum["fats"] += round(float(recipe[ingredient])*ingredient_list[ingredient][3], 2)
         stats_sum["carbs"] += round(float(recipe[ingredient])*ingredient_list[ingredient][4], 2)
         
 
-        summary_text += (f"{weight}{ingredient_name}{calories}\n")
+        summary_text.append([weight, ingredient_name, calories])
 
-    await message.answer(text=f"Recipe {4} summary:\n"
-                              f"{summary_text}\n"
+    await message.answer(text=f"```Recipe\n{tabulate(summary_text, headers=["Wheight","Ingredient", "Calories"], tablefmt="pretty")}\n```"
                               f"Price: {stats_sum["price"]}р.\n"
                               f"Calories: {stats_sum["calories"]}\n"
                               f"Value: {round(stats_sum["calories"]/stats_sum["price"], 2)}\n\n"
@@ -128,7 +129,7 @@ async def summary_of_recipe(message: Message, state: FSMContext):
                               f"proteins: {stats_sum["proteins"]}\n"
                               f"fats: {stats_sum["fats"]}\n"
                               f"carbs: {stats_sum["carbs"]}\n",
-                        reply_markup=kb.recipe_summary)
+                        reply_markup=kb.recipe_summary, parse_mode="Markdown")
     
     await state.set_state(FSMFillForm.RE_select_ingredient)
 
@@ -153,9 +154,15 @@ async def process_buttons_press(callback: CallbackQuery, state: FSMContext):
     recipe: dict = collected_data["recipe"]
     await req.save_new_recipe(recipe_name, recipe)
     await state.clear()
-    await callback.message.edit_text(text = "Recipe saved in databate")
+    await callback.message.edit_text(text = "Recipe saved in databate",
+                                     reply_markup=kb.add_another_recipe)
 
 
+# table = [["Sun",696000,1989100000],["Earth",6371,5973.6],
+#          ["Moon",1737,73.5],["Mars",3390,641.85]]
+
+# fmt = ["plain", "simple", "github", "grid", "simple_grid", "rounded_grid", "heavy_grid", "mixed_grid", "double_grid", "fancy_grid", "outline", "simple_outline", "rounded_outline", "heavy_outline", "mixed_outline", "double_outline", "fancy_outline", "pipe", "orgtbl", "asciidoc", "jira", "presto", "pretty", "psql", "rst", "mediawiki", "moinmoin", "youtrack", "html", "unsafehtml", "latex", "latex_raw", "latex_booktabs", "latex_longtable", "textile", "tsv"]
+# t = [tabulate(table, headers=["Planet","R (km)", "mass (x 10^29 kg)"], tablefmt=x) for x in fmt]
 # ljust(10)
 # Recipe summary:
 # 100г. Рис                       100ккал
@@ -248,7 +255,8 @@ async def process_buttons_press(callback: CallbackQuery, state: FSMContext):
     collected_data = await state.get_data()
     await req.save_ingredient(collected_data)
     await state.clear()
-    await callback.message.edit_text(text = "Product saved in databate")
+    await callback.message.edit_text(text = "Product saved in databate",
+                                     reply_markup=kb.add_another_ingredient)
 
 @command_add_router.callback_query(F.data.in_(["dont_save"]))
 async def process_buttons_press(callback: CallbackQuery, state: FSMContext):
@@ -324,7 +332,8 @@ async def process_buttons_press(callback: CallbackQuery, state: FSMContext):
     collected_data = await state.get_data()
     await req.save_sandalone(collected_data)
     await state.clear()
-    await callback.message.edit_text(text = "Product saved in databate")
+    await callback.message.edit_text(text = "Product saved in databate",
+                                     reply_markup=kb.add_another_standalone)
 
 @command_add_router.callback_query(F.data.in_(["dont_save"]))
 async def process_buttons_press(callback: CallbackQuery, state: FSMContext):
