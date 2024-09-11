@@ -24,7 +24,14 @@ async def show_reecipes():
     async with async_session() as session:
         return [x for x in await session.scalars(select(Recipes))]
 
+async def show_ingredients():
+    async with async_session() as session:
+        return [x for x in await session.scalars(select(Ingredients))]
 
+async def show_standalone():
+    async with async_session() as session:
+        return [x for x in await session.scalars(select(Standalone))]
+    
 async def save_ingredient(collected_data: dict):
     async with async_session() as session:
         session.add(Ingredients(ingredient_name =   collected_data['product_name'],
