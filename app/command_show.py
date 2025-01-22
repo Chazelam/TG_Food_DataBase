@@ -84,7 +84,7 @@ async def process_show_standalone(callback: CallbackQuery):
         calories = float(entry.calories)
         value = round((weight/100*calories)/price, 2)
 
-        l.append([entry.ingredient_name, value])
+        l.append([entry.ingredient_name[:30], value])
 
     
     table = tabulate(sorted(l, key=lambda x: x[1], reverse=True), headers=["Name", "Value"], tablefmt="pretty")
